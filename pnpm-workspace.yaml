@@ -1,0 +1,13 @@
+# pnpm 构建脚本白名单
+# pnpm 默认阻止依赖的 postinstall/install 脚本（安全机制），
+# 但本项目需要以下包执行脚本才能工作：
+#   - electron：postinstall 下载 Electron 二进制（必需，否则 Electron failed to install）
+#   - electron-winstaller / electron-builder：打包安装器所需
+#   - sharp：postinstall 校验预编译二进制
+allowBuilds:
+  electron: true
+  electron-builder: true
+  electron-winstaller: true
+  sharp: true
+  app-builder-bin: true
+  7zip-bin: true

@@ -64,6 +64,9 @@ npm install
 4. 等待安装完成（首次安装可能需要 1-3 分钟，取决于网络速度）
 5. 看到 `added xxx packages` 字样即表示安装成功
 
+> **使用 pnpm 的用户**：执行 `pnpm install` 即可（项目已配置 `.npmrc` 的 Electron 镜像与
+> `pnpm-workspace.yaml` 的构建脚本白名单，pnpm 能正常下载 Electron 二进制并执行所需脚本）。
+
 > 如果下载速度慢，可以先执行 `npm config set registry https://registry.npmmirror.com` 切换到国内镜像，再执行 `npm install`。
 
 ### 第四步：确认转换引擎

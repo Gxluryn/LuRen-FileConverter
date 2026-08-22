@@ -752,3 +752,20 @@ node -e "const { getConverterForFormat } = require('./src/main/converter'); cons
 - `--convert-to pdf` 启动 → 自动加载文件 → 自动转换 → 产物生成 ✓（日志链路确认）
 - 图片→PDF 路由：png→pdf 实测转换成功 ✓；parseConvertArg/collectFileArgs 边界（大小写、非法值、格式值不被当文件）✓
 - 全部改动文件语法检查通过；安装包已重新构建
+---
+
+## 十四、pnpm/npm 依赖管理适配记录（2026-08-22）
+
+### 问题
+- 用户改用 pnpm 后 `pnpm start` 失败：pnpm 默认拦截依赖构建脚本（ERR_PNPM_IGNORED_BUILDS），electron 的 postinstall 未执行 → 二进制缺失 → Electron failed to install
+- electron 二进制默认从 GitHub 下载，网络受限时 `fetch failed`
+
+### 修复
+- `pnpm-workspace.yaml`：`allowBuilds` 白名单（electron / electron-builder / electron-winstaller / sharp / app-builder-bin / 7zip-bin），允许执行安装脚本
+- `.npmrc`：`electron_mirror=https://npmmirror.com/mirrors/electron/`，electron 安装脚本（npm 与 pnpm 都会读取）改从国内镜像下载
+- 清理 pnpm 移入 `node_modules/.ignored` 的旧 npm 安装（462MB）
+- 若 pnpm 已装但未下载二进制，可手动 `node node_modules/electron/install.js`（镜像已在 .npmrc）
+
+### 验证
+- `pnpm install` 退出码 0，electron-winstaller 脚本执行成功 ✓
+- electron dist 下载成功（224.6MB），`pnpm start` 与 `npm start` 均可正常启动应用 ✓
