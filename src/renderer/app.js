@@ -99,6 +99,8 @@ let fileIdCounter = 0;              // 文件 ID 计数器，用于生成唯一 
 let resultIdCounter = 0;            // 结果 ID 计数器
 let renderTimer = null;             // 进度重渲染节流定时器（进度推送频繁，避免每帧重渲染）
 let outputDir = null;               // 自定义输出目录（null = 默认：输出到文件所在目录）
+let autoConvertFormat = null;     // 右键菜单指定的目标格式（--convert-to），非空则自动转换
+let autoConvertStarted = false;   // 自动转换是否已启动（防重复触发）
 
 // ============================================================
 // DOM 元素缓存：通过 id 获取常用元素，避免重复查询
@@ -296,6 +298,8 @@ function renderFileList() {
   fileListBody.innerHTML = '';
 
   files.forEach((file) => {
+    // 显示目标格式：右键菜单自动转换时用其指定格式，否则用下拉框当前值
+    const displayFmt = autoConvertFormat || targetFormat.value;
     const item = document.createElement('div');
     item.className = 'file-item';
     // 文件条目 HTML：图标 + 信息（名称/大小/目标格式） + 进度条 + 移除按钮
@@ -306,7 +310,7 @@ function renderFileList() {
         <div class="file-item-meta">
           <span>${formatSize(file.size)}</span>
           <span class="arrow">→</span>
-          <span>${FORMAT_LABELS[targetFormat.value] || targetFormat.value.toUpperCase()}</span>
+          <span>${FORMAT_LABELS[displayFmt] || displayFmt.toUpperCase()}</span>
         </div>
       </div>
       <div class="file-item-progress">
@@ -352,7 +356,7 @@ btnClear.addEventListener('click', () => {
 btnConvert.addEventListener('click', () => {
   // 没有文件时提示
   if (files.length === 0) {
-    alert('请先添加文件');
+    showToast('请先添加文件', 'info');
     return;
   }
 
@@ -456,7 +460,8 @@ function resetConvertButton() {
  * 任务 ID 与文件通过 taskId 关联，进度/完成/失败由事件推送驱动
  */
 function startRealConversion() {
-  const targetFmt = targetFormat.value;
+  // 右键菜单自动转换时使用其指定格式，否则用下拉框当前选择
+  const targetFmt = autoConvertFormat || targetFormat.value;
   const inputPaths = files.map((f) => f.path);
   btnConvert.disabled = true;
   btnConvert.textContent = '转换中...';
@@ -477,7 +482,7 @@ function startRealConversion() {
     })
     .catch((err) => {
       // 启动失败（如 IPC 异常）：恢复按钮，不留下卡死的界面
-      alert('启动转换失败：' + err.message);
+      showToast('启动转换失败：' + err.message, 'error', 5000);
       resetConvertButton();
       files.forEach((f) => { f.status = 'pending'; });
       renderFileList();
@@ -499,7 +504,7 @@ function registerConversionListeners() {
   });
 
   // 完成推送：加入结果列表；全部完成时恢复按钮并清空待转列表
-  api.onConvertComplete(({ taskId, outputPath }) => {
+  api.onConvertComplete(({ taskId, outputPath, size }) => {
     const f = files.find((x) => x.taskId === taskId);
     if (f) { f.status = 'done'; f.progress = 100; }
     if (outputPath) {
@@ -509,7 +514,7 @@ function registerConversionListeners() {
       results.unshift({
         id: ++resultIdCounter,
         name,
-        size: 0, // 主进程暂不返回输出大小；结果卡片会显示格式
+        size: size || 0, // 主进程 stat 的真实输出大小
         format: ext,
         path: outputPath,
       });
@@ -518,6 +523,9 @@ function registerConversionListeners() {
     renderFileList();
     if (!files.some((x) => x.status === 'converting' || x.status === 'pending')) {
       resetConvertButton();
+      // 重置右键菜单自动转换状态（一次一用）
+      autoConvertFormat = null;
+      autoConvertStarted = false;
       // 延迟清空列表，让用户看到进度条变绿
       setTimeout(() => { files = []; renderFileList(); }, 400);
     }
@@ -530,6 +538,9 @@ function registerConversionListeners() {
     renderFileList();
     if (!files.some((x) => x.status === 'converting' || x.status === 'pending')) {
       resetConvertButton();
+      // 全部结束（含失败）也重置自动转换状态
+      autoConvertFormat = null;
+      autoConvertStarted = false;
     }
   });
 }
@@ -561,6 +572,36 @@ function refreshEngineStatus() {
 }
 
 // ============================================================
+// Toast 轻提示（替代 alert：不阻塞操作、可堆叠、自动消失）
+// ============================================================
+let toastContainer = null;
+function ensureToastContainer() {
+  if (!toastContainer) {
+    toastContainer = document.createElement('div');
+    toastContainer.className = 'toast-container';
+    document.body.appendChild(toastContainer);
+  }
+  return toastContainer;
+}
+/**
+ * 显示一条轻提示
+ * @param {string} message - 提示内容
+ * @param {'info'|'success'|'error'} [type='info']
+ * @param {number} [duration=3000] - 显示时长（毫秒）
+ */
+function showToast(message, type = 'info', duration = 3000) {
+  const toast = document.createElement('div');
+  toast.className = 'toast toast-' + type;
+  toast.textContent = message;
+  ensureToastContainer().appendChild(toast);
+  // 自动淡出并移除（防止残留 DOM）
+  setTimeout(() => {
+    toast.classList.add('toast-out');
+    setTimeout(() => toast.remove(), 300);
+  }, duration);
+}
+
+// ============================================================
 // 新增功能：输出目录选择 / 转换效果预览 / 右键菜单文件接收
 // ============================================================
 
@@ -573,7 +614,7 @@ function renderOutputDir() {
 /** 选择输出目录（系统目录对话框；取消则保持原选择） */
 function chooseOutputDir() {
   if (typeof window.electronAPI?.chooseDirectory !== 'function') {
-    alert('（调试模式）请使用 Electron 运行以选择输出目录');
+    showToast('（调试模式）请使用 Electron 运行以选择输出目录', 'info');
     return;
   }
   window.electronAPI.chooseDirectory()
@@ -583,7 +624,7 @@ function chooseOutputDir() {
       localStorage.setItem('luren-output-dir', dir); // 记住本次选择，下次启动沿用
       renderOutputDir();
     })
-    .catch((err) => alert('选择输出目录失败：' + err.message));
+    .catch((err) => showToast('选择输出目录失败：' + err.message, 'error', 4000));
 }
 
 /** 恢复默认输出目录（输出到文件所在目录） */
@@ -602,6 +643,8 @@ function closePreviewModal() { previewModal.hidden = true; }
  * @param {{original: string|null, preview: string|null, info: string|null}} res
  */
 function displayPreviewData(res) {
+  // 有结果就隐藏加载 spinner
+  $('preview-spinner').hidden = true;
   if (res.original) {
     previewOriginal.src = res.original;
     previewOriginal.hidden = false;
@@ -616,7 +659,7 @@ function displayPreviewData(res) {
     previewResultEmpty.style.display = 'none';
   } else {
     previewResultEmpty.style.display = 'flex';
-    previewResultEmpty.textContent = '无预览';
+    $('preview-result-text').textContent = '无预览';
   }
   previewInfo.textContent = res.info || '';
 }
@@ -628,7 +671,8 @@ function resetPreviewModal() {
   previewOriginalEmpty.style.display = 'flex';
   previewOriginalEmpty.textContent = '无原图预览';
   previewResultEmpty.style.display = 'flex';
-  previewResultEmpty.textContent = '正在生成…';
+  $('preview-spinner').hidden = false;
+  $('preview-result-text').textContent = '正在生成…';
   previewInfo.textContent = '';
 }
 
@@ -639,11 +683,11 @@ function resetPreviewModal() {
 function showPreview() {
   const target = files.find((f) => f.path);
   if (!target) {
-    alert('请先添加文件再预览');
+    showToast('请先添加文件再预览', 'info');
     return;
   }
   if (typeof window.electronAPI?.getPreview !== 'function') {
-    alert('（调试模式）请使用 Electron 运行以预览效果');
+    showToast('（调试模式）请使用 Electron 运行以预览效果', 'info');
     return;
   }
   resetPreviewModal();
@@ -657,7 +701,8 @@ function showPreview() {
   })
     .then(displayPreviewData)
     .catch((err) => {
-      previewResultEmpty.textContent = '预览失败';
+      $('preview-spinner').hidden = true;
+      $('preview-result-text').textContent = '预览失败';
       previewInfo.textContent = err.message || '预览生成失败';
     });
 }
@@ -686,17 +731,47 @@ function addExternalFiles(fileDescs) {
   renderFileList();
 }
 
+/**
+ * 处理右键菜单携带的目标格式：设置自动转换状态并延迟启动（WPS 风格：点击即转）
+ * @param {string|null} format
+ */
+function handleConvertTo(format) {
+  if (!format) return;
+  autoConvertFormat = String(format).toLowerCase();
+  // 若当前功能的下拉框包含该格式则同步选中（界面一致性好）；不含则按实际格式转换
+  const options = [...targetFormat.options].map((o) => o.value);
+  if (options.includes(autoConvertFormat)) targetFormat.value = autoConvertFormat;
+  // 延迟启动：先让文件列表渲染出来，再自动开始转换
+  setTimeout(() => {
+    if (files.length > 0 && !autoConvertStarted) {
+      autoConvertStarted = true;
+      const canReal = typeof window.electronAPI?.convertStart === 'function' && files.every((f) => f.path);
+      if (canReal) startRealConversion();
+      else startSimulatedConversion();
+    }
+  }, 400);
+}
+
 /** 注册右键菜单文件接收（启动携带 + 运行中二次实例转发） */
 function registerOpenFiles() {
   const api = window.electronAPI;
   if (!api) return;
   // 启动时携带的文件：主动拉取（比推送可靠，避免渲染层监听器未就绪的竞态）
   if (typeof api.getPendingFiles === 'function') {
-    api.getPendingFiles().then(addExternalFiles).catch(() => {});
+    api.getPendingFiles().then((payload) => {
+      // 兼容两种载荷：新版 { files, convertTo }，旧版 文件数组
+      const fileList = Array.isArray(payload) ? payload : payload?.files;
+      addExternalFiles(fileList);
+      handleConvertTo(Array.isArray(payload) ? null : payload?.convertTo);
+    }).catch(() => {});
   }
   // 运行中收到新文件（右键菜单在应用已启动时再次触发）
   if (typeof api.onOpenFiles === 'function') {
-    api.onOpenFiles(addExternalFiles);
+    api.onOpenFiles((payload) => {
+      const fileList = Array.isArray(payload) ? payload : payload?.files;
+      addExternalFiles(fileList);
+      handleConvertTo(Array.isArray(payload) ? null : payload?.convertTo);
+    });
   }
 }
 
@@ -780,23 +855,24 @@ function renderResults() {
           window.electronAPI.getPreview({ inputPath: result.path, feature: 'image', targetFormat: result.format, options: {} })
             .then(displayPreviewData)
             .catch((err) => {
-              previewResultEmpty.textContent = '预览失败';
+              $('preview-spinner').hidden = true;
+              $('preview-result-text').textContent = '预览失败';
               previewInfo.textContent = err.message || '预览生成失败';
             });
         } else {
-          alert('（调试模式）预览：' + result.name);
+          showToast('（调试模式）预览：' + result.name, 'info');
         }
       } else if (action === 'open') {
         if (result.path && window.electronAPI?.openPath) {
           window.electronAPI.openPath(result.path);
         } else {
-          alert('（调试模式）打开：' + result.name);
+          showToast('（调试模式）打开：' + result.name, 'info');
         }
       } else if (action === 'save') {
         if (result.path && window.electronAPI?.showInFolder) {
           window.electronAPI.showInFolder(result.path);
         } else {
-          alert('（调试模式）保存：' + result.name);
+          showToast('（调试模式）保存：' + result.name, 'info');
         }
       }
     });

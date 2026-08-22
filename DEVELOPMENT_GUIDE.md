@@ -728,3 +728,27 @@ node -e "const { getConverterForFormat } = require('./src/main/converter'); cons
 - NSIS 卸载段调用的函数必须用 `un.` 前缀（否则编译报错）
 - 独立 `un.` 函数需 `!ifdef BUILD_UNINSTALLER` 守卫（否则安装器编译通道报 warning 6020，electron-builder 把警告当错误）
 - 临时目录清理从宽泛的 `luren-*` 收窄为本应用实际使用的前缀清单（严格满足「只操作自身数据」）
+---
+
+## 十三、问题修复与体验优化记录（2026-08-22）
+
+### 1. 修复：预览模态框启动即弹出且无法关闭
+- 根因：CSS `.modal-overlay { display:flex }` 覆盖了 HTML `hidden` 属性（UA 的 `[hidden]{display:none}` 优先级低于显式 display 规则），模态框一直可见、关闭无效
+- 修复：新增全局守卫 `[hidden] { display: none !important; }`，所有 hidden 元素强制隐藏
+
+### 2. 右键菜单升级为 WPS 风格二级子菜单
+- 原单一「使用 LuRen FileConverter 转换」项 → 父菜单「LuRen FileConverter」+ 12 个子项：转换为 PDF/Word/Excel/PPT/TXT/HTML/JPG/PNG/WebP/GIF/MP3/MP4
+- 注册表结构：`*\shell\LuRenFileConverter\shell\<格式>\command`，命令携带 `--convert-to <格式>`（与 WPS/7-Zip 同款）
+- 应用侧：`parseConvertArg` 解析目标格式；文件载荷改为 `{ files, convertTo }`；前端收到后**自动开始转换**（WPS 点击即转体验）
+- 新增**图片→PDF** 转换路由（`imageToPdfConverter`：pdf-lib 嵌入图片，其他格式先经 sharp 转 PNG），右键菜单图片转 PDF 不再报错
+
+### 3. 界面优化
+- Toast 轻提示系统替代全部 `alert()`（不阻塞、可堆叠、自动消失）
+- 结果卡片显示**真实输出文件大小**（主进程 complete 事件附带 stat 结果）
+- 预览模态框增加加载 spinner；拖拽区悬停/拖入高亮、导航选中左侧竖条、按钮聚焦环、进度条渐变填充、卡片悬停浮起、细滚动条等视觉打磨
+
+### 验证
+- 右键菜单：父键 + 12 子项 command 全部写入（含 --convert-to），卸载递归删除 ✓
+- `--convert-to pdf` 启动 → 自动加载文件 → 自动转换 → 产物生成 ✓（日志链路确认）
+- 图片→PDF 路由：png→pdf 实测转换成功 ✓；parseConvertArg/collectFileArgs 边界（大小写、非法值、格式值不被当文件）✓
+- 全部改动文件语法检查通过；安装包已重新构建

@@ -23,8 +23,8 @@ const { checkEngines } = require('./engines');
 const logger = require('./utils/logger');
 // 预览服务（新增功能 2）
 const { generatePreview } = require('./preview');
-// 右键菜单注册与文件参数提取（新增功能 3）
-const { installContextMenu, collectFileArgs } = require('./context-menu');
+// 右键菜单注册与文件参数提取（新增功能 3；WPS 式子菜单附带 --convert-to 目标格式）
+const { installContextMenu, collectFileArgs, parseConvertArg } = require('./context-menu');
 
 /**
  * 主窗口实例
@@ -35,6 +35,8 @@ let mainWindow = null;
 
 // 启动时通过命令行携带的文件（右键菜单场景），等渲染层就绪后投递
 let pendingFiles = [];
+// 右键菜单指定的目标格式（--convert-to <格式>），随文件一起交给渲染层自动转换
+let pendingConvertTo = null;
 
 /**
  * 把文件路径数组补充为 { path, name, size }（渲染层展示需要名称与大小）
@@ -110,9 +112,13 @@ function createWindow() {
   // 注意：此处用 webContents.on 每次窗口重建都会新加监听器，旧窗口已销毁无影响
   mainWindow.webContents.on('did-finish-load', () => {
     if (pendingFiles.length > 0) {
-      logger.info('[index] 投递启动文件:', pendingFiles.join(' | '));
-      mainWindow.webContents.send('open-files', describeFiles(pendingFiles.slice()));
+      logger.info('[index] 投递启动文件:', pendingFiles.join(' | '), '目标格式:', pendingConvertTo);
+      mainWindow.webContents.send('open-files', {
+        files: describeFiles(pendingFiles.slice()),
+        convertTo: pendingConvertTo,
+      });
       pendingFiles = [];
+      pendingConvertTo = null;
     }
   });
 
@@ -189,8 +195,10 @@ ipcMain.handle('preview:get', async (_event, payload = {}) => {
 // 新增功能 3：渲染层初始化时拉取启动携带的文件（避免推送丢失）
 ipcMain.handle('files:pending', () => {
   const files = pendingFiles.splice(0); // 取出即清空，防止重复接收
-  if (files.length > 0) logger.info('[index] 渲染层拉取启动文件:', files.join(' | '));
-  return describeFiles(files);
+  if (files.length > 0) logger.info('[index] 渲染层拉取启动文件:', files.join(' | '), '目标格式:', pendingConvertTo);
+  const convertTo = pendingConvertTo;
+  pendingConvertTo = null; // 消费后清空
+  return { files: describeFiles(files), convertTo };
 });
 
 // ============================================================
@@ -217,8 +225,9 @@ if (!gotLock) {
       if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.focus();
       if (files.length > 0) {
-        logger.info('[index] 二次实例转发文件:', files.join(' | '));
-        mainWindow.webContents.send('open-files', describeFiles(files));
+        const convertTo = parseConvertArg(argv);
+        logger.info('[index] 二次实例转发文件:', files.join(' | '), '目标格式:', convertTo);
+        mainWindow.webContents.send('open-files', { files: describeFiles(files), convertTo });
       }
     }
   });
@@ -229,10 +238,11 @@ if (!gotLock) {
  * 此时可以创建窗口、注册全局快捷键等
  */
 app.whenReady().then(() => {
-  // 收集启动参数中的文件（右键菜单启动场景）；渲染层就绪后由 createWindow 投递
+  // 收集启动参数中的文件与目标格式（右键菜单启动场景）；渲染层就绪后由 createWindow 投递
   pendingFiles = collectFileArgs(process.argv);
+  pendingConvertTo = parseConvertArg(process.argv);
   // 诊断：确认启动参数与收集结果（右键菜单排障用）
-  logger.info('[index] 启动参数:', JSON.stringify(process.argv), '→ 收集文件:', JSON.stringify(pendingFiles));
+  logger.info('[index] 启动参数:', JSON.stringify(process.argv), '→ 收集文件:', JSON.stringify(pendingFiles), '目标格式:', pendingConvertTo);
 
   createWindow();
 

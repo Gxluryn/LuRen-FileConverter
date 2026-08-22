@@ -253,6 +253,41 @@ async function pdfToImagesConverter(inputPath, outputPath, options) {
 }
 
 /**
+ * 图片 → PDF（生成单页 PDF 嵌入图片）
+ * 为什么需要：右键菜单「转换为 PDF」对图片文件是常见需求，而图片转换器不支持 pdf 输出
+ * @param {string} inputPath
+ * @param {string} outputPath
+ * @returns {Promise<string>}
+ */
+async function imageToPdfConverter(inputPath, outputPath) {
+  const sharp = require('sharp'); // 延迟加载：仅此路径用到
+  const { PDFDocument } = require('pdf-lib');
+  const ext = file.getFileExtension(inputPath);
+
+  // pdf-lib 只支持嵌入 PNG/JPEG；其他图片格式先用 sharp 转 PNG
+  let buffer;
+  let isPng;
+  if (ext === 'png') {
+    buffer = fs.readFileSync(inputPath);
+    isPng = true;
+  } else if (ext === 'jpg' || ext === 'jpeg') {
+    buffer = fs.readFileSync(inputPath);
+    isPng = false;
+  } else {
+    buffer = await sharp(inputPath).png().toBuffer();
+    isPng = true;
+  }
+
+  const doc = await PDFDocument.create();
+  const img = isPng ? await doc.embedPng(buffer) : await doc.embedJpg(buffer);
+  // 页面尺寸 = 图片尺寸（按点嵌入，1:1 展示）
+  const page = doc.addPage([img.width, img.height]);
+  page.drawImage(img, { x: 0, y: 0, width: img.width, height: img.height });
+  fs.writeFileSync(outputPath, await doc.save());
+  return outputPath;
+}
+
+/**
  * 格式路由：根据输入/输出扩展名选择转换器
  * 规则（按优先级）：
  * - 目标扫描件 PDF（options.scanEffect）→ scan-effect
@@ -275,7 +310,13 @@ function getConverterForFormat(inputExt, outputExt, options = {}) {
     return { convertFn: scanEffect.convertToScannedPdf, type: 'scan', serial: true };
   }
 
-  // 2) 图片互转（sharp 主力的并发安全）
+  // 2) 图片 → PDF（生成单页 PDF，右键菜单「转换为 PDF」的图片场景）
+  const isImageInput = imageMod.INPUT_FORMATS.includes(inExt);
+  if (isImageInput && outExt === 'pdf') {
+    return { convertFn: imageToPdfConverter, type: 'image-pdf', serial: false };
+  }
+
+  // 3) 图片互转（sharp 主力的并发安全）
   if (imageMod.isSupported(inExt, outExt)) {
     return { convertFn: imageMod.convertImage, type: 'image', serial: false };
   }
@@ -291,7 +332,7 @@ function getConverterForFormat(inputExt, outputExt, options = {}) {
   }
 
   // 5) → txt：PDF 走文本提取（空则 OCR），图片走 OCR（Tesseract 串行）
-  const isImageInput = imageMod.INPUT_FORMATS.includes(inExt);
+  // isImageInput 已在图片→PDF 路由处声明，这里直接复用
   if (outExt === 'txt' && (inExt === 'pdf' || isImageInput)) {
     return { convertFn: convertToText, type: 'text', serial: true };
   }
@@ -411,7 +452,16 @@ function registerIpcHandlers(ipcMain, mainWindow) {
   // 队列事件 → 渲染进程推送
   queue.on('taskStart', (t) => send('convert:progress', { taskId: t.id, status: 'processing', progress: t.progress }));
   queue.on('taskProgress', (t) => send('convert:progress', { taskId: t.id, status: t.status, progress: t.progress }));
-  queue.on('taskComplete', (t) => send('convert:complete', { taskId: t.id, outputPath: t.outputPath, status: 'done' }));
+  queue.on('taskComplete', (t) => {
+    // 附带输出文件大小（前端结果卡片展示真实大小）；stat 失败（如文件被移走）则 size=0
+    let size = 0;
+    try {
+      size = fs.statSync(t.outputPath).size;
+    } catch {
+      size = 0;
+    }
+    send('convert:complete', { taskId: t.id, outputPath: t.outputPath, size, status: 'done' });
+  });
   queue.on('taskError', (t) => send('convert:error', { taskId: t.id, error: t.error, status: 'failed' }));
 
   /**
