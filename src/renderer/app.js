@@ -101,6 +101,28 @@ let renderTimer = null;             // 进度重渲染节流定时器（进度�
 let outputDir = null;               // 自定义输出目录（null = 默认：输出到文件所在目录）
 let autoConvertFormat = null;     // 右键菜单指定的目标格式（--convert-to），非空则自动转换
 let autoConvertStarted = false;   // 自动转换是否已启动（防重复触发）
+let previewOptions = { preset: 'normal', quality: 90, width: '' }; // 预览参数（应用到正式转换）
+let previewRegenTimer = null;     // 预览重生成防抖定时器
+
+/**
+ * 按当前功能构造转换选项（预览参数 → 正式转换）
+ * 图片：质量/缩放宽度；扫描件：效果预设；其他：无参数
+ * @returns {object}
+ */
+function buildConversionOptions() {
+  if (currentFeature === 'scan') {
+    return { preset: previewOptions.preset };
+  }
+  if (currentFeature === 'image') {
+    const opts = {};
+    const quality = Number(previewOptions.quality);
+    if (Number.isFinite(quality)) opts.quality = quality;
+    const width = Number(previewOptions.width);
+    if (width > 0) opts.width = width;
+    return opts;
+  }
+  return {};
+}
 
 // ============================================================
 // DOM 元素缓存：通过 id 获取常用元素，避免重复查询
@@ -131,6 +153,17 @@ const previewResult = $('preview-result');     // 预览结果 img
 const previewOriginalEmpty = $('preview-original-empty');
 const previewResultEmpty = $('preview-result-empty');
 const previewInfo = $('preview-info');         // 预览说明文字
+// 预览参数控制区（问题 2：预览不是摆设，参数可调且应用到正式转换）
+const previewControls = $('preview-controls');
+const previewControlPreset = $('preview-control-preset');
+const previewControlQuality = $('preview-control-quality');
+const previewControlWidth = $('preview-control-width');
+const previewPreset = $('preview-preset');
+const previewQuality = $('preview-quality');
+const previewQualityValue = $('preview-quality-value');
+const previewWidth = $('preview-width');
+const previewStats = $('preview-stats');       // 对比统计（大小等）
+const previewFileInfo = $('preview-fileinfo'); // 文件信息
 
 // ============================================================
 // 窗口控制：通过预加载脚本暴露的 electronAPI 调用主进程
@@ -469,7 +502,8 @@ function startRealConversion() {
   renderFileList();
 
   // 输出目录：用户自选目录优先，否则 null（主进程默认输出到文件所在目录）
-  window.electronAPI.convertStart({ files: inputPaths, targetFormat: targetFmt, outputDir, options: {} })
+  // options：带上预览设置的参数（图片质量/缩放、扫描效果预设），预览即所得
+  window.electronAPI.convertStart({ files: inputPaths, targetFormat: targetFmt, outputDir, options: buildConversionOptions() })
     .then((results_) => {
       // 建立 taskId ↔ 文件关联；路由失败的文件带 error 字段
       results_.forEach((r) => {
@@ -511,14 +545,19 @@ function registerConversionListeners() {
       const parts = outputPath.split(/[\\/]/);
       const name = parts[parts.length - 1];
       const ext = name.split('.').pop().toLowerCase();
+      // 输出目录：截取路径目录部分用于结果卡片展示与提示
+      const dir = outputPath.replace(/[\\/][^\\/]*$/, '');
       results.unshift({
         id: ++resultIdCounter,
         name,
         size: size || 0, // 主进程 stat 的真实输出大小
         format: ext,
         path: outputPath,
+        dir,
       });
       renderResults();
+      // 明确提示输出位置（用户要求：转换后知道文件去了哪里）
+      showToast('转换完成：' + name + ' → ' + dir, 'success', 5000);
     }
     renderFileList();
     if (!files.some((x) => x.status === 'converting' || x.status === 'pending')) {
@@ -662,6 +701,22 @@ function displayPreviewData(res) {
     $('preview-result-text').textContent = '无预览';
   }
   previewInfo.textContent = res.info || '';
+
+  // 对比统计：原图大小 → 预览大小（让"效果"可感知，无损格式差异体现在文件大小）
+  if (res.originalStats || res.previewStats) {
+    const orig = res.originalStats ? formatSize(res.originalStats.size) : '—';
+    const prev = res.previewStats ? formatSize(res.previewStats.size) : '—';
+    previewStats.textContent = '原图大小：' + orig + '  →  转换效果：' + prev + '（' + (targetFormat.value || '').toUpperCase() + '）';
+  } else {
+    previewStats.textContent = '';
+  }
+
+  // 文件信息（文档/音视频等无法图片预览时也有信息可看）
+  if (res.fileInfo) {
+    previewFileInfo.textContent = '文件：' + res.fileInfo.name + '（' + res.fileInfo.type + '，' + formatSize(res.fileInfo.size) + '）';
+  } else {
+    previewFileInfo.textContent = '';
+  }
 }
 
 /** 重置模态框为「生成中」状态 */
@@ -680,6 +735,48 @@ function resetPreviewModal() {
  * 生成并展示第一个文件的转换效果预览
  * 真实调用主进程预览服务（与正式转换同一套管线，预览即所得）
  */
+/**
+ * 按当前功能显示/隐藏预览参数控件
+ * 扫描件：效果预设；图片：质量 + 缩放宽度；其他：无参数控件
+ */
+function updatePreviewControls() {
+  const isScan = currentFeature === 'scan';
+  const isImage = currentFeature === 'image';
+  previewControls.hidden = !(isScan || isImage);
+  previewControlPreset.hidden = !isScan;
+  previewControlQuality.hidden = !isImage;
+  previewControlWidth.hidden = !isImage;
+}
+
+/** 生成当前预览（使用预览参数），供初次预览与参数变更后重预览共用 */
+function generatePreviewRequest() {
+  const target = files.find((f) => f.path);
+  if (!target) return;
+  if (typeof window.electronAPI?.getPreview !== 'function') return;
+  resetPreviewModal();
+  window.electronAPI.getPreview({
+    inputPath: target.path,
+    feature: currentFeature,
+    targetFormat: targetFormat.value,
+    options: buildConversionOptions(),
+  })
+    .then(displayPreviewData)
+    .catch((err) => {
+      $('preview-spinner').hidden = true;
+      $('preview-result-text').textContent = '预览失败';
+      previewInfo.textContent = err.message || '预览生成失败';
+    });
+}
+
+/** 参数变更 → 防抖重新预览（400ms，避免滑块拖动时频繁请求） */
+function schedulePreviewRegen() {
+  if (previewRegenTimer) clearTimeout(previewRegenTimer);
+  previewRegenTimer = setTimeout(() => {
+    previewRegenTimer = null;
+    if (!previewModal.hidden) generatePreviewRequest();
+  }, 400);
+}
+
 function showPreview() {
   const target = files.find((f) => f.path);
   if (!target) {
@@ -690,22 +787,30 @@ function showPreview() {
     showToast('（调试模式）请使用 Electron 运行以预览效果', 'info');
     return;
   }
-  resetPreviewModal();
+  // 同步控件状态与参数显示，再生成预览
+  updatePreviewControls();
+  previewPreset.value = previewOptions.preset;
+  previewQuality.value = previewOptions.quality;
+  previewQualityValue.textContent = previewOptions.quality;
+  previewWidth.value = previewOptions.width;
   openPreviewModal();
-
-  window.electronAPI.getPreview({
-    inputPath: target.path,
-    feature: currentFeature,
-    targetFormat: targetFormat.value,
-    options: {},
-  })
-    .then(displayPreviewData)
-    .catch((err) => {
-      $('preview-spinner').hidden = true;
-      $('preview-result-text').textContent = '预览失败';
-      previewInfo.textContent = err.message || '预览生成失败';
-    });
+  generatePreviewRequest();
 }
+
+// 预览参数控件事件：变更即防抖重新预览（预览不再是摆设）
+previewPreset.addEventListener('change', () => {
+  previewOptions.preset = previewPreset.value;
+  schedulePreviewRegen();
+});
+previewQuality.addEventListener('input', () => {
+  previewOptions.quality = previewQuality.value;
+  previewQualityValue.textContent = previewQuality.value;
+  schedulePreviewRegen();
+});
+previewWidth.addEventListener('change', () => {
+  previewOptions.width = previewWidth.value;
+  schedulePreviewRegen();
+});
 
 /**
  * 把「文件描述数组」加入待转换列表（右键菜单传入）
@@ -827,6 +932,7 @@ function renderResults() {
         <div class="result-card-info">
           <div class="result-card-name">${result.name}</div>
           <div class="result-card-size">${formatSize(result.size)} · ${FORMAT_LABELS[result.format] || result.format.toUpperCase()}</div>
+          <div class="result-card-path" title="${result.path || ''}">${result.dir || ''}</div>
         </div>
       </div>
       <div class="result-card-actions">
@@ -869,7 +975,19 @@ function renderResults() {
           showToast('（调试模式）打开：' + result.name, 'info');
         }
       } else if (action === 'save') {
-        if (result.path && window.electronAPI?.showInFolder) {
+        // 真正的"另存为"：系统保存对话框选择位置后复制文件；取消/失败有明确反馈
+        if (result.path && window.electronAPI?.saveAs) {
+          window.electronAPI.saveAs({
+            sourcePath: result.path,
+            suggestedName: result.name,
+            defaultDir: outputDir || undefined, // 自定义输出目录优先作为默认位置
+          })
+            .then((saved) => {
+              if (saved) showToast('已保存到：' + saved, 'success', 4000);
+            })
+            .catch((err) => showToast('保存失败：' + err.message, 'error', 4000));
+        } else if (result.path && window.electronAPI?.showInFolder) {
+          // 降级：无保存对话框能力时在资源管理器中显示
           window.electronAPI.showInFolder(result.path);
         } else {
           showToast('（调试模式）保存：' + result.name, 'info');

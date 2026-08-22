@@ -107,6 +107,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   /** 在资源管理器中显示文件所在位置 */
   showInFolder: (filePath) => ipcRenderer.invoke('file:show-in-folder', filePath),
 
+  /**
+   * 另存为：系统保存对话框 + 复制文件到目标位置（真正的"下载"）
+   * @param {{sourcePath: string, suggestedName?: string, defaultDir?: string}} payload
+   * @returns {Promise<string|null>} 保存路径；取消返回 null
+   */
+  saveAs: (payload) => ipcRenderer.invoke('file:save-as', payload),
+
   // ===== 新增功能 1：自选输出目录 =====
 
   /** 弹出系统目录选择对话框；取消返回 null */

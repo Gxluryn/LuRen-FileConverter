@@ -288,6 +288,26 @@
         <button class="modal-close" id="btn-preview-close" title="关闭">×</button>
       </div>
       <div class="modal-body">
+        <!-- 参数控制区：调整后自动重新预览（预览即设置，参数会应用到正式转换） -->
+        <div class="preview-controls" id="preview-controls" hidden>
+          <div class="preview-control" id="preview-control-preset" hidden>
+            <label for="preview-preset">扫描效果</label>
+            <select id="preview-preset">
+              <option value="light">轻度</option>
+              <option value="normal" selected>标准</option>
+              <option value="heavy">重度</option>
+              <option value="oldPhoto">老照片</option>
+            </select>
+          </div>
+          <div class="preview-control" id="preview-control-quality" hidden>
+            <label for="preview-quality">图片质量 <span id="preview-quality-value">90</span></label>
+            <input type="range" id="preview-quality" min="50" max="100" value="90">
+          </div>
+          <div class="preview-control" id="preview-control-width" hidden>
+            <label for="preview-width">缩放宽度(px)</label>
+            <input type="number" id="preview-width" min="0" placeholder="不缩放">
+          </div>
+        </div>
         <div class="preview-compare">
           <!-- 原图 -->
           <div class="preview-pane">
@@ -303,8 +323,10 @@
             <div class="preview-empty" id="preview-result-empty"><span class="spinner" id="preview-spinner" hidden></span><span id="preview-result-text">正在生成…</span></div>
           </div>
         </div>
+        <p class="preview-stats" id="preview-stats"></p>
+        <p class="preview-fileinfo" id="preview-fileinfo"></p>
         <p class="preview-info" id="preview-info"></p>
-        <p class="preview-tip" id="preview-tip">提示：预览为真实转换管线生成，最终效果以实际转换结果为准</p>
+        <p class="preview-tip" id="preview-tip">提示：预览为真实转换管线生成，参数会应用到正式转换</p>
       </div>
     </div>
   </div>

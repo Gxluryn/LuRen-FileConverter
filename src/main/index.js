@@ -14,6 +14,8 @@ const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
 
 // 引入 path 模块，用于处理文件路径
 const path = require('path');
+// 文件系统：另存为复制、文件描述等
+const fs = require('fs');
 
 // 转换调度核心：注册全部转换 IPC 通道（模块 10）
 const { registerIpcHandlers } = require('./converter');
@@ -101,6 +103,34 @@ function createWindow() {
   ipcMain.handle('file:show-in-folder', (_event, filePath) => {
     if (typeof filePath !== 'string' || !filePath || !path.isAbsolute(filePath)) return;
     shell.showItemInFolder(filePath);
+  });
+  // 另存为：弹出系统保存对话框，把输出文件复制到用户选择的位置（真正的"下载"）
+  // 载荷：{ sourcePath, suggestedName?, defaultDir? }；取消返回 null；成功返回保存路径
+  ipcMain.handle('file:save-as', async (_event, payload = {}) => {
+    const { sourcePath, suggestedName, defaultDir } = payload;
+    // 安全校验：源路径必须是绝对路径且存在（用户要求 14：防越权路径）
+    if (typeof sourcePath !== 'string' || !sourcePath || !path.isAbsolute(sourcePath)) {
+      throw new Error('无效的源文件路径');
+    }
+    if (!fs.existsSync(sourcePath)) throw new Error('源文件不存在：' + sourcePath);
+
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: '另存为',
+      defaultPath: defaultDir
+        ? path.join(defaultDir, suggestedName || path.basename(sourcePath))
+        : suggestedName || path.basename(sourcePath),
+      filters: [{ name: '文件', extensions: ['*'] }],
+    });
+    if (result.canceled || !result.filePath) return null;
+
+    try {
+      await fs.promises.copyFile(sourcePath, result.filePath);
+      logger.info('[file] 另存为:', sourcePath, '→', result.filePath);
+      return result.filePath;
+    } catch (err) {
+      logger.error('[file] 另存为失败:', err.message);
+      throw new Error('保存失败：' + err.message);
+    }
   });
   // 引擎状态（底部状态栏）
   ipcMain.handle('engines:status', () => {

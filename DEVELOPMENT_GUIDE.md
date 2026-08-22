@@ -769,3 +769,29 @@ node -e "const { getConverterForFormat } = require('./src/main/converter'); cons
 ### 验证
 - `pnpm install` 退出码 0，electron-winstaller 脚本执行成功 ✓
 - electron dist 下载成功（224.6MB），`pnpm start` 与 `npm start` 均可正常启动应用 ✓
+---
+
+## 十五、遗留问题修复记录：保存/下载与预览（2026-08-22）
+
+### 1. 转换后无法下载、选定保存位置未保存
+- 根因：结果卡片的「保存」原为「在资源管理器中显示」（shell.showItemInFolder），并非真正的另存为；输出位置也未在界面明确展示
+- 修复：
+  - 新增 `file:save-as` IPC：系统保存对话框（默认目录=自定义输出目录，默认文件名=输出文件名）→ `fs.copyFile` 复制，成功/取消/失败均有明确反馈
+  - 结果卡片显示**输出目录**（路径行 + title 完整路径）
+  - 转换完成 toast 明确提示「已输出到 <目录>」
+  - 自定义输出目录经端到端实测确认生效（文件落在所选目录）且经 localStorage 持久化
+- 相关文件：`src/main/index.js`、`src/preload/preload.js`、`src/renderer/app.js`
+
+### 2. 预览功能是摆设、无法预览
+- 根因：文档类预览只显示「不支持」；图片预览与原图看不出差异；无参数可调，预览与正式转换无关
+- 修复：
+  - 预览模态框新增**参数控制区**：扫描件=效果预设（轻度/标准/重度/老照片），图片=质量滑块+缩放宽度；调整即防抖自动重新预览
+  - 预览显示**对比统计**：原图大小 → 转换效果大小（格式），让无损转换的差异可感知；并显示文件信息（名称/类型/大小）
+  - **PDF 处理**任意目标格式都渲染首页预览（含页数信息）
+  - **预览参数应用到正式转换**：图片质量/缩放、扫描预设会随转换请求下发（预览即所得）
+  - 文档/音视频/OCR 等如实展示文件信息与说明（不做假预览）
+- 相关文件：`src/main/preview.js`、`src/main/scan-effect.js`（convertToScannedPdf 支持 preset）、`src/renderer/index.html`、`src/renderer/app.js`、`src/renderer/style.css`
+
+### 验证
+- 图片预览带参数、扫描预设展开、PDF 首页预览（含页数）、文档类型 info+fileInfo、扫描转换应用 preset、自定义输出目录端到端生效：10/10 通过
+- 渲染层 `--enable-logging` 无 JS 错误；39 个 DOM 引用与 HTML 全部匹配；全部文件语法检查通过

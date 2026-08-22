@@ -173,7 +173,14 @@ async function applyScanEffect(imagePath, outputPath, options = {}) {
  * @returns {Promise<string>} 输出路径
  */
 async function convertToScannedPdf(inputPath, outputPath, options = {}) {
-  const { dpi = 200, ...effectOptions } = options;
+  const { dpi = 200, ...rawOptions } = options;
+  // 支持 preset 预设：预览选择的效果参数直接应用到正式转换（预览即所得）
+  let effectOptions = rawOptions;
+  if (rawOptions.preset) {
+    const presets = getEffectPresets();
+    const presetParams = presets[rawOptions.preset];
+    if (presetParams) effectOptions = { ...presetParams, ...rawOptions };
+  }
   const tmpDir = file.createTempDir('luren-scan-');
   try {
     // 1) 非 PDF → 临时 PDF（LibreOffice 转换）
