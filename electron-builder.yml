@@ -1,0 +1,46 @@
+# electron-builder 打包配置
+# 目标：Windows NSIS 安装包（.exe），支持自定义安装位置与干净卸载
+appId: com.luren.fileconverter
+productName: LuRen FileConverter
+copyright: Copyright © 2026 LuRen
+
+directories:
+  output: dist            # 构建产物输出目录（构建后安装包会复制到项目根目录）
+  buildResources: build   # 构建资源（图标、NSIS 脚本等）
+
+# 应用代码：src/ 下的源码 + package.json（node_modules 生产依赖由 electron-builder 自动纳入）
+files:
+  - src/**/*
+  - package.json
+
+# 转换引擎（ffmpeg/libreoffice/poppler/tesseract/tessdata/avs3）作为额外资源放进 resources/bin
+# 引擎目录约 1.3GB、16000+ 文件，不压缩进 asar，避免安装后运行时的解包开销
+extraResources:
+  - from: bin
+    to: bin
+    filter:
+      - "**/*"
+
+# 原生模块/含 wasm 的包需要从 asar 解包，否则运行时无法加载
+asarUnpack:
+  - "node_modules/sharp/**"
+  - "node_modules/heic-convert/**"
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  executableName: LuRenFileConverter
+  artifactName: "LuRen-FileConverter-Setup-${version}.${ext}"
+
+nsis:
+  oneClick: false                        # 向导式安装（可选安装位置）
+  perMachine: false                      # 仅当前用户安装（无需管理员，卸载也是用户级）
+  allowToChangeInstallationDirectory: true  # 允许用户自选安装目录（功能要求）
+  createDesktopShortcut: always          # 创建桌面快捷方式
+  createStartMenuShortcut: true          # 创建开始菜单快捷方式
+  shortcutName: LuRen FileConverter
+  uninstallDisplayName: LuRen FileConverter
+  deleteAppDataOnUninstall: true         # 卸载时删除应用自身的 userData（%APPDATA% 下本应用数据）
+  include: build/installer.nsh           # 自定义 NSIS 脚本（卸载清理自身数据）

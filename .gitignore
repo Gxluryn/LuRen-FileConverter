@@ -1,0 +1,30 @@
+# 依赖
+node_modules/
+
+# 转换引擎（体积大，不进 git，自己本地保留）
+bin/
+
+# 构建产物
+dist/
+out/
+build/*
+# 例外：NSIS 卸载清理脚本是源文件，需要入库
+!build/installer.nsh
+
+# 打包生成的安装包（体积大，不进 git）
+LuRen-FileConverter-Setup-*.exe
+
+# 日志和临时文件
+*.log
+*.tmp
+temp/
+.cache/
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+
+# 系统文件
+Thumbs.db
+.DS_Store

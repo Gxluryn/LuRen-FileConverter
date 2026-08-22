@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <!-- 页面元信息 -->
+  <meta charset="UTF-8">                    <!-- 字符编码：UTF-8，支持中文 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"> <!-- 视口设置，响应式布局基础 -->
+  <title>LuRen FileConverter</title>        <!-- 页面标题，显示在窗口标题栏（虽然我们用了自定义标题栏） -->
+  <link rel="stylesheet" href="style.css">  <!-- 引入外部样式表 -->
+</head>
+<body>
+
+  <!-- ============================================================
+       顶部标题栏（自定义，因为 frame:false 关闭了默认标题栏）
+       功能：显示应用名称 + 窗口控制按钮（最小化/最大化/关闭）
+       注意：整个标题栏可拖拽移动窗口（在 CSS 中通过 -webkit-app-region: drag 实现）
+       ============================================================ -->
+  <header class="titlebar">
+    <!-- 左侧：Logo + 应用名称 -->
+    <div class="titlebar-left">
+      <!-- 应用 Logo：鼠标/图片图标，内联 SVG 无需外部资源 -->
+      <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="2"/>          <!-- 外框：圆角矩形 -->
+        <circle cx="8.5" cy="8.5" r="1.5"/>                        <!-- 图片预览：小圆点 -->
+        <polyline points="21 15 16 10 5 21"/>                      <!-- 图片预览：山峰线 -->
+      </svg>
+      <span class="app-name">LuRen FileConverter</span>             <!-- 应用名称文字 -->
+    </div>
+
+    <!-- 右侧：窗口控制按钮 -->
+    <div class="titlebar-right">
+      <!-- 最小化按钮 -->
+      <button class="win-btn" id="btn-minimize" title="最小化">
+        <svg viewBox="0 0 12 12" fill="currentColor"><rect x="2" y="5.5" width="8" height="1" rx="0.5"/></svg>
+      </button>
+      <!-- 最大化/还原按钮 -->
+      <button class="win-btn" id="btn-maximize" title="最大化">
+        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1"><rect x="2.5" y="2.5" width="7" height="7" rx="1"/></svg>
+      </button>
+      <!-- 关闭按钮（悬停时变红，在 CSS 中定义） -->
+      <button class="win-btn win-btn-close" id="btn-close" title="关闭">
+        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.2">
+          <line x1="3" y1="3" x2="9" y2="9"/>   <!-- X 的左斜线 -->
+          <line x1="9" y1="3" x2="3" y2="9"/>   <!-- X 的右斜线 -->
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ============================================================
+       主体区域：三栏布局
+       左侧导航栏 + 中间主操作区 + 右侧结果面板
+       ============================================================ -->
+  <main class="main-content">
+
+    <!-- ========== 左侧导航栏 ========== -->
+    <!-- 功能：7个功能入口，点击切换当前功能模块 -->
+    <!-- data-feature 属性：功能标识，JS 通过此属性识别当前选中的功能 -->
+    <!-- .active 类：当前选中项，CSS 中定义为浅蓝色背景高亮 -->
+    <nav class="sidebar">
+      <!-- 文档转换 -->
+      <div class="nav-item active" data-feature="document">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>  <!-- 文档外形 -->
+          <polyline points="14 2 14 8 20 8"/>  <!-- 文档折角 -->
+          <line x1="8" y1="13" x2="16" y2="13"/> <!-- 文字行1 -->
+          <line x1="8" y1="17" x2="16" y2="17"/> <!-- 文字行2 -->
+        </svg>
+        <span>文档转换</span>
+      </div>
+
+      <!-- 图片转换 -->
+      <div class="nav-item" data-feature="image">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2"/>          <!-- 外框 -->
+          <circle cx="8.5" cy="8.5" r="1.5"/>                        <!-- 太阳/焦点 -->
+          <polyline points="21 15 16 10 5 21"/>                      <!-- 山峰 -->
+        </svg>
+        <span>图片转换</span>
+      </div>
+
+      <!-- 音视频转换 -->
+      <div class="nav-item" data-feature="media">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="23 7 16 12 23 17 23 7"/>  <!-- 播放按钮三角形 -->
+          <rect x="1" y="5" width="15" height="14" rx="2"/> <!-- 视频外框 -->
+        </svg>
+        <span>音视频转换</span>
+      </div>
+
+      <!-- PDF 处理 -->
+      <div class="nav-item" data-feature="pdf">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="9" y1="15" x2="15" y2="15"/>
+          <line x1="9" y1="11" x2="15" y2="11"/>
+        </svg>
+        <span>PDF 处理</span>
+      </div>
+
+      <!-- 扫描件模拟 -->
+      <div class="nav-item" data-feature="scan">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 7V5a2 2 0 0 1 2-2h2"/>     <!-- 左上角扫描线 -->
+          <path d="M17 3h2a2 2 0 0 1 2 2v2"/>     <!-- 右上角扫描线 -->
+          <path d="M21 17v2a2 2 0 0 1-2 2h-2"/>   <!-- 右下角扫描线 -->
+          <path d="M7 21H5a2 2 0 0 1-2-2v-2"/>   <!-- 左下角扫描线 -->
+          <line x1="7" y1="12" x2="17" y2="12"/>  <!-- 中间扫描线 -->
+        </svg>
+        <span>扫描件模拟</span>
+      </div>
+
+      <!-- OCR 识别 -->
+      <div class="nav-item" data-feature="ocr">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 7V4h16v3"/>   <!-- 顶部横杠 -->
+          <path d="M9 20h6"/>         <!-- 底部横杠 -->
+          <path d="M12 4v16"/>        <!-- 中间竖线（T 字形，代表文字/Text） -->
+        </svg>
+        <span>OCR 识别</span>
+      </div>
+
+      <!-- 批量转换 -->
+      <div class="nav-item" data-feature="batch">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="7" height="7" rx="1"/>    <!-- 左上格子 -->
+          <rect x="14" y="3" width="7" height="7" rx="1"/>   <!-- 右上格子 -->
+          <rect x="14" y="14" width="7" height="7" rx="1"/>  <!-- 右下格子 -->
+          <rect x="3" y="14" width="7" height="7" rx="1"/>   <!-- 左下格子 -->
+        </svg>
+        <span>批量转换</span>
+      </div>
+    </nav>
+
+    <!-- ========== 中间主操作区 ========== -->
+    <!-- 功能：拖拽上传 + 文件列表 + 格式选择 + 转换按钮 -->
+    <section class="workspace">
+      <!-- 工作区标题：根据当前选中的功能动态更新 -->
+      <div class="workspace-header">
+        <h2 class="workspace-title" id="feature-title">文档转换</h2>
+        <p class="workspace-subtitle" id="feature-subtitle">支持 Word / Excel / PPT / PDF / TXT / Markdown 互转</p>
+      </div>
+
+      <!-- 拖拽上传区域 -->
+      <!-- 点击或拖拽文件到此处即可添加文件 -->
+      <!-- .drag-over 类：文件拖拽悬停时添加，CSS 中定义高亮效果 -->
+      <div class="drop-zone" id="drop-zone">
+        <!-- 上传图标：云朵+箭头 -->
+        <svg class="drop-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        <p class="drop-text">拖拽文件到此处，或<span class="drop-link">点击选择文件</span></p>
+        <p class="drop-hint">支持多文件同时上传，单个文件最大 500MB</p>
+        <!-- 隐藏的文件输入框：点击上传区时触发，选择文件后通过 change 事件处理 -->
+        <input type="file" id="file-input" multiple hidden>
+      </div>
+
+      <!-- 待转换文件列表 -->
+      <div class="file-list" id="file-list">
+        <!-- 列表头部：标题 + 文件数量 -->
+        <div class="file-list-header">
+          <span>待转换文件</span>
+          <span class="file-count" id="file-count">0 个文件</span>
+        </div>
+        <!-- 列表主体：动态渲染文件条目 -->
+        <div class="file-list-body" id="file-list-body">
+          <!-- 空状态：没有文件时显示 -->
+          <div class="empty-state" id="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+            </svg>
+            <p>暂无文件，请先添加文件</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 底部操作栏：格式选择 + 输出位置 + 操作按钮 -->
+      <div class="action-bar">
+        <!-- 目标格式选择器 -->
+        <div class="format-selector">
+          <label>目标格式</label>
+          <!-- 下拉框：选项根据当前功能动态更新（JS 中实现） -->
+          <select id="target-format">
+            <option value="pdf">PDF</option>
+            <option value="docx">Word (.docx)</option>
+            <option value="xlsx">Excel (.xlsx)</option>
+            <option value="pptx">PPT (.pptx)</option>
+            <option value="txt">TXT</option>
+            <option value="md">Markdown</option>
+            <option value="html">HTML</option>
+            <option value="jpg">JPG</option>
+            <option value="png">PNG</option>
+            <option value="webp">WebP</option>
+          </select>
+        </div>
+        <!-- 输出位置选择器（新增功能 1）：默认输出到文件所在目录，可自选 -->
+        <div class="output-selector" title="转换后文件的保存位置">
+          <label>输出位置</label>
+          <span class="output-dir-text" id="output-dir-text">文件所在目录（默认）</span>
+          <button class="btn btn-mini" id="btn-choose-dir">选择…</button>
+          <button class="btn btn-mini" id="btn-reset-dir">默认</button>
+        </div>
+        <!-- 操作按钮组 -->
+        <div class="action-buttons">
+          <!-- 预览按钮（新增功能 2）：对第一个文件生成转换效果预览 -->
+          <button class="btn btn-secondary" id="btn-preview" title="预览第一个文件的转换效果">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+            预览
+          </button>
+          <button class="btn btn-secondary" id="btn-clear">清空列表</button>
+          <button class="btn btn-primary" id="btn-convert">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="5 3 19 12 5 21 5 3"/> <!-- 播放按钮 -->
+            </svg>
+            开始转换
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== 右侧结果面板 ========== -->
+    <!-- 功能：显示转换完成的文件，支持打开和保存 -->
+    <aside class="result-panel">
+      <!-- 面板头部：标题 + 结果数量徽章 -->
+      <div class="result-header">
+        <h3>转换结果</h3>
+        <span class="result-count" id="result-count">0</span>
+      </div>
+      <!-- 结果列表：动态渲染转换完成的文件卡片 -->
+      <div class="result-list" id="result-list">
+        <!-- 空状态：没有转换结果时显示 -->
+        <div class="result-empty" id="result-empty">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="1" y1="1" x2="23" y2="23"/>  <!-- 斜杠，表示无/禁用 -->
+            <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/>
+            <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/>
+            <path d="M10.71 5.05A16 16 0 0 1 22.58 9"/>
+            <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/>
+            <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+            <line x1="12" y1="20" x2="12.01" y2="20"/>
+          </svg>
+          <p>转换完成的文件会显示在这里</p>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- ============================================================
+       底部状态栏
+       功能：显示引擎状态 + 离线模式标识
+       ============================================================ -->
+  <footer class="statusbar">
+    <!-- 左侧：引擎状态 -->
+    <div class="status-left">
+      <span class="status-dot status-ok"></span>  <!-- 绿色圆点，表示正常 -->
+      <span>引擎状态：全部就绪</span>
+    </div>
+    <!-- 右侧：离线模式标识 -->
+    <div class="status-right">
+      <!-- WiFi 禁用图标，表示离线 -->
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="1" y1="1" x2="23" y2="23"/>
+        <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/>
+        <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/>
+        <path d="M10.71 5.05A16 16 0 0 1 22.58 9"/>
+        <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/>
+        <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+        <line x1="12" y1="20" x2="12.01" y2="20"/>
+      </svg>
+      <span>离线模式</span>
+    </div>
+  </footer>
+
+  <!-- ============================================================
+       预览模态框（新增功能 2）
+       显示第一个文件的「原图 → 转换效果预览」对比
+       ============================================================ -->
+  <div class="modal-overlay" id="preview-modal" hidden>
+    <div class="modal">
+      <div class="modal-header">
+        <h3>转换效果预览</h3>
+        <button class="modal-close" id="btn-preview-close" title="关闭">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="preview-compare">
+          <!-- 原图 -->
+          <div class="preview-pane">
+            <div class="preview-label">原图</div>
+            <img id="preview-original" alt="原图" hidden>
+            <div class="preview-empty" id="preview-original-empty">无原图预览</div>
+          </div>
+          <div class="preview-arrow">→</div>
+          <!-- 转换效果预览 -->
+          <div class="preview-pane">
+            <div class="preview-label">转换效果</div>
+            <img id="preview-result" alt="转换预览" hidden>
+            <div class="preview-empty" id="preview-result-empty">正在生成…</div>
+          </div>
+        </div>
+        <p class="preview-info" id="preview-info"></p>
+        <p class="preview-tip" id="preview-tip">提示：预览为真实转换管线生成，最终效果以实际转换结果为准</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 引入前端交互逻辑脚本 -->
+  <script src="app.js"></script>
+</body>
+</html>

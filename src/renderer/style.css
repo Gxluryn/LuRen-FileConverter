@@ -1,0 +1,816 @@
+/* ============================================================
+   LuRen FileConverter - 样式表
+   主题：浅色主题，白色+浅灰+浅蓝色点缀，圆角卡片设计
+   布局：顶部标题栏 + 三栏主体（导航/操作区/结果面板）+ 底部状态栏
+   ============================================================ */
+
+/* ===== 全局重置 ===== */
+/* 清除浏览器默认样式，统一盒模型计算方式 */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;  /* border-box：width 和 height 包含 padding 和 border，布局更直观 */
+}
+
+/* ===== CSS 变量定义 ===== */
+/* 集中管理颜色、圆角、阴影、过渡动画等，方便统一修改主题 */
+:root {
+  /* 主色调：浅蓝色系 */
+  --color-primary: #4a90d9;           /* 主色：按钮、选中项、链接 */
+  --color-primary-light: #e8f1fb;     /* 主色浅色：选中项背景、悬停背景 */
+  --color-primary-hover: #3a7bc8;      /* 主色悬停：按钮悬停时的深色 */
+
+  /* 背景与表面色 */
+  --color-bg: #f5f7fa;                  /* 页面背景色：浅灰 */
+  --color-surface: #ffffff;             /* 卡片/面板背景色：白色 */
+  --color-border: #e4e8ed;              /* 边框色：浅灰 */
+
+  /* 文字颜色 */
+  --color-text: #2c3e50;                /* 主文字色：深灰蓝 */
+  --color-text-secondary: #7f8c9b;      /* 次要文字色：中灰 */
+  --color-text-muted: #aab4bf;          /* 弱化文字色：浅灰（提示文字、占位符） */
+
+  /* 状态色 */
+  --color-success: #52c41a;             /* 成功色：绿色（转换完成、引擎就绪） */
+  --color-warning: #faad14;             /* 警告色：黄色 */
+  --color-error: #ff4d4f;               /* 错误色：红色（关闭按钮悬停、错误提示） */
+
+  /* 圆角尺寸 */
+  --radius-sm: 6px;                      /* 小圆角：按钮、输入框 */
+  --radius-md: 10px;                     /* 中圆角：卡片、面板 */
+  --radius-lg: 14px;                     /* 大圆角：拖拽上传区 */
+
+  /* 阴影 */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);   /* 小阴影：轻微悬浮 */
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);  /* 中阴影：卡片悬浮 */
+
+  /* 过渡动画 */
+  --transition: all 0.2s ease;           /* 通用过渡：0.2秒缓动，用于悬停、选中状态切换 */
+}
+
+/* ===== 页面基础样式 ===== */
+html, body {
+  height: 100%;                           /* 占满整个视口高度 */
+  /* 字体栈：优先系统字体，保证各平台显示效果 */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 14px;                        /* 基础字号 */
+  color: var(--color-text);               /* 基础文字色 */
+  background: var(--color-bg);            /* 页面背景色 */
+  overflow: hidden;                        /* 禁止页面滚动，各区域内部独立滚动 */
+  user-select: none;                       /* 禁止文字选中（桌面应用体验，避免拖拽时误选文字） */
+}
+
+/* body 使用 flex 纵向布局：标题栏 + 主体 + 状态栏 */
+body {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ===== 自定义滚动条 ===== */
+/* Webkit 内核浏览器（Chrome、Electron）的滚动条样式 */
+::-webkit-scrollbar {
+  width: 6px;                             /* 滚动条宽度 */
+  height: 6px;                            /* 水平滚动条高度 */
+}
+::-webkit-scrollbar-track {
+  background: transparent;                 /* 滚动条轨道：透明 */
+}
+::-webkit-scrollbar-thumb {
+  background: #c8d0d8;                    /* 滚动条滑块：浅灰 */
+  border-radius: 3px;                      /* 圆角 */
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #a8b0b8;                     /* 悬停时变深 */
+}
+
+/* ============================================================
+   顶部标题栏样式
+   ============================================================ */
+.titlebar {
+  height: 40px;                            /* 标题栏高度 */
+  background: var(--color-surface);        /* 白色背景 */
+  border-bottom: 1px solid var(--color-border);  /* 底部分隔线 */
+  display: flex;
+  align-items: center;                     /* 垂直居中 */
+  justify-content: space-between;          /* 左右两端对齐 */
+  padding: 0 12px;                         /* 左右内边距 */
+  -webkit-app-region: drag;                /* 关键：使整个标题栏可拖拽移动窗口 */
+  flex-shrink: 0;                          /* 不允许被压缩 */
+}
+
+/* 标题栏左侧：Logo + 应用名 */
+.titlebar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;                                 /* Logo 和文字之间的间距 */
+}
+
+/* Logo 图标 */
+.logo-icon {
+  width: 20px;
+  height: 20px;
+  color: var(--color-primary);             /* Logo 使用主色调 */
+}
+
+/* 应用名称文字 */
+.app-name {
+  font-size: 13px;
+  font-weight: 600;                         /* 半粗体 */
+  color: var(--color-text);
+}
+
+/* 标题栏右侧：窗口控制按钮组 */
+.titlebar-right {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  -webkit-app-region: no-drag;             /* 关键：按钮区域不可拖拽，否则点击按钮会变成拖拽窗口 */
+}
+
+/* 窗口控制按钮通用样式 */
+.win-btn {
+  width: 32px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);            /* 悬停动画过渡 */
+}
+.win-btn:hover {
+  background: var(--color-bg);              /* 悬停时背景变灰 */
+  color: var(--color-text);                 /* 文字变深 */
+}
+.win-btn svg {
+  width: 12px;
+  height: 12px;
+}
+/* 关闭按钮特殊样式：悬停时变红 */
+.win-btn-close:hover {
+  background: var(--color-error);           /* 红色背景 */
+  color: #fff;                               /* 白色图标 */
+}
+
+/* ============================================================
+   主体区域：三栏布局
+   ============================================================ */
+.main-content {
+  flex: 1;                                  /* 占满剩余空间（标题栏和状态栏之间） */
+  display: flex;                            /* 横向三栏布局 */
+  height: calc(100vh - 40px - 32px);       /* 计算高度：视口 - 标题栏40px - 状态栏32px */
+  overflow: hidden;                          /* 禁止整体滚动，各栏内部滚动 */
+}
+
+/* ============================================================
+   左侧导航栏
+   ============================================================ */
+.sidebar {
+  width: 160px;                             /* 固定宽度 */
+  background: var(--color-surface);         /* 白色背景 */
+  border-right: 1px solid var(--color-border);  /* 右侧分隔线 */
+  padding: 12px 8px;
+  display: flex;
+  flex-direction: column;                    /* 纵向排列导航项 */
+  gap: 2px;                                  /* 导航项之间的间距 */
+  flex-shrink: 0;                            /* 不允许被压缩 */
+  overflow-y: auto;                          /* 内容过多时纵向滚动 */
+}
+
+/* 导航项通用样式 */
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;                                 /* 图标和文字间距 */
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--color-text-secondary);        /* 默认灰色文字 */
+  font-size: 13px;
+  transition: var(--transition);
+}
+.nav-item:hover {
+  background: var(--color-bg);               /* 悬停时背景变灰 */
+  color: var(--color-text);                  /* 文字变深 */
+}
+/* 当前选中的导航项 */
+.nav-item.active {
+  background: var(--color-primary-light);    /* 浅蓝色背景 */
+  color: var(--color-primary);               /* 主色文字 */
+  font-weight: 500;                           /* 半粗体 */
+}
+.nav-item svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;                             /* 图标不压缩 */
+}
+
+/* ============================================================
+   中间主操作区
+   ============================================================ */
+.workspace {
+  flex: 1;                                   /* 占满剩余宽度 */
+  display: flex;
+  flex-direction: column;                     /* 纵向布局：标题 + 上传区 + 文件列表 + 操作栏 */
+  padding: 20px 24px;
+  overflow: hidden;
+  gap: 16px;                                  /* 各区块之间的间距 */
+}
+
+/* 工作区标题 */
+.workspace-header {
+  flex-shrink: 0;                             /* 不压缩 */
+}
+.workspace-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: 4px;
+}
+.workspace-subtitle {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+/* ===== 拖拽上传区 ===== */
+.drop-zone {
+  border: 2px dashed var(--color-border);    /* 虚线边框 */
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  padding: 32px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: var(--transition);
+  flex-shrink: 0;
+}
+/* 悬停和拖拽悬停时的高亮效果 */
+.drop-zone:hover,
+.drop-zone.drag-over {
+  border-color: var(--color-primary);         /* 边框变主色 */
+  background: var(--color-primary-light);     /* 背景变浅蓝 */
+}
+/* 上传区图标 */
+.drop-icon {
+  width: 40px;
+  height: 40px;
+  color: var(--color-text-muted);
+  margin-bottom: 10px;
+}
+.drop-zone:hover .drop-icon,
+.drop-zone.drag-over .drop-icon {
+  color: var(--color-primary);                 /* 高亮时图标变主色 */
+}
+/* 上传区主文字 */
+.drop-text {
+  font-size: 14px;
+  color: var(--color-text);
+  margin-bottom: 4px;
+}
+/* "点击选择文件" 链接样式 */
+.drop-link {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+/* 上传区提示文字 */
+.drop-hint {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+/* ===== 文件列表 ===== */
+.file-list {
+  flex: 1;                                    /* 占满剩余空间 */
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;                              /* 关键：允许 flex 子元素缩小，使内部滚动生效 */
+}
+/* 列表头部 */
+.file-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text);
+  flex-shrink: 0;
+}
+/* 文件数量文字 */
+.file-count {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  font-weight: normal;
+}
+/* 列表主体：可滚动区域 */
+.file-list-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+/* 空状态样式（文件列表和结果面板共用） */
+.empty-state,
+.result-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  color: var(--color-text-muted);
+}
+.empty-state svg,
+.result-empty svg {
+  width: 48px;
+  height: 48px;
+  margin-bottom: 12px;
+  opacity: 0.5;                                /* 半透明，弱化显示 */
+}
+.empty-state p,
+.result-empty p {
+  font-size: 13px;
+}
+
+/* 文件条目样式 */
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 4px;
+  transition: var(--transition);
+}
+.file-item:hover {
+  background: var(--color-bg);                /* 悬停时背景变灰 */
+}
+/* 文件类型图标（显示扩展名缩写，如 PDF、IMG） */
+.file-item-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 600;
+}
+/* 文件信息区域 */
+.file-item-info {
+  flex: 1;
+  min-width: 0;                                /* 允许文字溢出省略 */
+}
+/* 文件名 */
+.file-item-name {
+  font-size: 13px;
+  color: var(--color-text);
+  white-space: nowrap;                          /* 不换行 */
+  overflow: hidden;                             /* 溢出隐藏 */
+  text-overflow: ellipsis;                      /* 溢出显示省略号 */
+  margin-bottom: 2px;
+}
+/* 文件元信息：大小 + 箭头 + 目标格式 */
+.file-item-meta {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.file-item-meta .arrow {
+  color: var(--color-text-muted);
+}
+/* 进度条区域 */
+.file-item-progress {
+  width: 80px;
+  flex-shrink: 0;
+}
+/* 进度条轨道 */
+.progress-bar {
+  width: 100%;
+  height: 4px;
+  background: var(--color-border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+/* 进度条填充 */
+.progress-fill {
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: 2px;
+  transition: width 0.3s ease;                 /* 宽度变化动画 */
+}
+/* 完成状态：绿色 */
+.progress-fill.done {
+  background: var(--color-success);
+}
+/* 失败状态：红色（真实转换中路由失败/引擎错误的文件） */
+.progress-fill.failed {
+  background: var(--color-danger, #e74c3c);
+}
+/* 移除文件按钮 */
+.file-item-remove {
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: var(--transition);
+}
+.file-item-remove:hover {
+  background: var(--color-error);
+  color: #fff;
+}
+.file-item-remove svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* ===== 底部操作栏 ===== */
+.action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-shrink: 0;
+}
+/* 格式选择器 */
+.format-selector {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.format-selector label {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+/* 下拉选择框 */
+.format-selector select {
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  font-size: 13px;
+  color: var(--color-text);
+  cursor: pointer;
+  outline: none;
+  transition: var(--transition);
+  min-width: 140px;
+}
+.format-selector select:hover {
+  border-color: var(--color-primary);
+}
+.format-selector select:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(74, 144, 217, 0.1);  /* 聚焦时的蓝色光晕 */
+}
+/* 操作按钮组 */
+.action-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+/* ===== 通用按钮样式 ===== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 20px;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+  outline: none;
+}
+.btn svg {
+  width: 14px;
+  height: 14px;
+}
+/* 主按钮：蓝色背景 */
+.btn-primary {
+  background: var(--color-primary);
+  color: #fff;
+}
+.btn-primary:hover {
+  background: var(--color-primary-hover);
+}
+.btn-primary:active {
+  transform: translateY(1px);                 /* 点击时轻微下移，模拟按压效果 */
+}
+.btn-primary:disabled {
+  background: var(--color-text-muted);
+  cursor: not-allowed;
+}
+/* 次按钮：白色背景+边框 */
+.btn-secondary {
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+}
+.btn-secondary:hover {
+  background: var(--color-bg);
+  color: var(--color-text);
+  border-color: var(--color-text-muted);
+}
+
+/* ============================================================
+   右侧结果面板
+   ============================================================ */
+.result-panel {
+  width: 280px;                               /* 固定宽度 */
+  background: var(--color-surface);
+  border-left: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+/* 面板头部 */
+.result-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+.result-header h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+/* 结果数量徽章 */
+.result-count {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;                    /* 胶囊形状 */
+  min-width: 20px;
+  text-align: center;
+}
+/* 结果列表：可滚动 */
+.result-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* 结果卡片 */
+.result-card {
+  background: var(--color-bg);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  transition: var(--transition);
+}
+.result-card:hover {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-sm);
+}
+/* 卡片头部：图标 + 文件名 + 大小 */
+.result-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+/* 成功图标：绿色圆形背景 + 对勾 */
+.result-card-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--color-success);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.result-card-icon svg {
+  width: 18px;
+  height: 18px;
+}
+/* 结果文件信息 */
+.result-card-info {
+  flex: 1;
+  min-width: 0;
+}
+.result-card-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 2px;
+}
+.result-card-size {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+/* 卡片操作按钮组 */
+.result-card-actions {
+  display: flex;
+  gap: 6px;
+}
+/* 结果卡片按钮：打开/保存 */
+.result-card-btn {
+  flex: 1;
+  padding: 6px 0;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: var(--transition);
+}
+.result-card-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+
+/* ============================================================
+   底部状态栏
+   ============================================================ */
+.statusbar {
+  height: 32px;
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+.status-left,
+.status-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+/* 状态圆点 */
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+/* 警告状态：橙色（引擎缺失时） */
+.status-warn {
+  background: #f39c12;
+  box-shadow: 0 0 6px rgba(243, 156, 18, 0.4);
+}
+/* 正常状态：绿色 + 光晕 */
+.status-ok {
+  background: var(--color-success);
+  box-shadow: 0 0 0 3px rgba(82, 196, 26, 0.15);  /* 绿色外发光 */
+}
+.statusbar svg {
+  width: 14px;
+  height: 14px;
+}
+/* ============================================================
+   新增功能样式：输出位置选择器 / 预览模态框
+   ============================================================ */
+
+/* 迷你按钮（输出位置行的 选择/默认 小按钮） */
+.btn-mini {
+  padding: 3px 10px;
+  font-size: 12px;
+  border: 1px solid var(--color-border, #d5dbe3);
+  border-radius: 4px;
+  background: #fff;
+  color: var(--color-text, #333);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn-mini:hover { background: var(--color-bg-hover, #f0f4f8); }
+
+/* 输出位置选择器：一行内显示当前目录，过长省略号 */
+.output-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.output-selector label { font-size: 13px; color: var(--color-text-muted, #888); white-space: nowrap; }
+.output-dir-text {
+  font-size: 13px;
+  color: var(--color-text, #333);
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 预览按钮与转换按钮间距 */
+#btn-preview { gap: 4px; }
+
+/* 模态框遮罩：全屏半透明，点击遮罩关闭 */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.modal {
+  background: #fff;
+  border-radius: 10px;
+  width: min(880px, 92vw);
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--color-border, #e5e9f0);
+}
+.modal-header h3 { margin: 0; font-size: 16px; }
+.modal-close {
+  border: none;
+  background: transparent;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--color-text-muted, #888);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+.modal-close:hover { background: #f0f2f5; color: #333; }
+.modal-body { padding: 16px 18px; overflow: auto; }
+
+/* 原图 / 预览 对比区 */
+.preview-compare {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.preview-pane {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+}
+.preview-label {
+  font-size: 13px;
+  color: var(--color-text-muted, #888);
+  margin-bottom: 8px;
+}
+.preview-pane img {
+  max-width: 100%;
+  max-height: 55vh;
+  border: 1px solid var(--color-border, #e5e9f0);
+  border-radius: 6px;
+  background: #fafbfc;
+}
+.preview-arrow {
+  align-self: center;
+  font-size: 22px;
+  color: var(--color-text-muted, #aaa);
+  flex-shrink: 0;
+}
+.preview-empty {
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted, #999);
+  font-size: 13px;
+  border: 1px dashed var(--color-border, #d5dbe3);
+  border-radius: 6px;
+}
+.preview-info { margin: 12px 0 4px; font-size: 13px; color: #d48806; }
+.preview-tip { margin: 0; font-size: 12px; color: var(--color-text-muted, #999); }
